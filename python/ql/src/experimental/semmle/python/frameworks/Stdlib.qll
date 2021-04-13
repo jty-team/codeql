@@ -32,21 +32,39 @@ private module SQLAlchemy {
     result = API::moduleImport("sqlalchemy").getMember("create_engine").getReturn()
   }
 
-  private class SqlAlchemyQuerySink extends DataFlow::CallCfgNode, SqlExecution::Range {
+  private class SqlAlchemyInjectionSink extends DataFlow::CallCfgNode, SqlExecution::Range {
     DataFlow::Node sql;
 
-    SqlAlchemyQuerySink() {
+    SqlAlchemyInjectionSink() {
       this in [
-        sqlAlchemyQueryInstance().getMember(any(SqlAlchemyQuerySinkMethods sinkMethod)).getACall(),
-        sqlAlchemySessionInstance().getMember("execute").getACall(),
-        sqlAlchemySessionInstance().getMember("scalar").getACall()
-        sqlAlchemyEngineInstance().getMember("connect").getReturn().getMember("execute").getACall(),
-        sqlAlchemyEngineInstance().getMember("begin").getReturn().getMember("execute").getACall()
+        any(SqlAlchemyExecuteInjectionSink injectionSink)
+        any(SqlAlchemyQueryInjectionSink injectionSink)
       ] and
       sql = this.getArg(0)
     }
 
     override DataFlow::Node getSql() { result = sql }
+  }
+
+  private class SqlAlchemyExecuteInjectionSink extends DataFlow::Node {
+    SqlAlchemyExecuteInjectionSink() {
+      this in [
+        sqlAlchemySessionInstance().getMember("execute").getACall(),
+        sqlAlchemyEngineInstance().getMember("connect").getReturn().getMember("execute").getACall(),
+        sqlAlchemyEngineInstance().getMember("begin").getReturn().getMember("execute").getACall()
+      ] and
+      sql = this.getArg(0)
+    }
+  }
+
+  private class SqlAlchemyQueryInjectionSink extends DataFlow::Node {
+    SqlAlchemyQueryInjectionSink() {
+      this in [
+        sqlAlchemyQueryInstance().getMember(any(SqlAlchemyQuerySinkMethods sinkMethod)).getACall(),
+        sqlAlchemySessionInstance().getMember("scalar").getACall()
+      ] and
+      sql = this.getArg(0)
+    }
   }
 
   private class SqlSanitizerCall extends DataFlow::CallCfgNode, NoSQLSanitizer::Range {
