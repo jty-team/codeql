@@ -11,8 +11,43 @@ private import experimental.semmle.python.Concepts
 private import semmle.python.Concepts
 private import semmle.python.ApiGraphs
 
-private module SQL {
-  // TODO: We need to add the SqlExecution::Range subclasses that cover SqlAlchemy sinks
+private module SQLAlchemy {
+  private class SqlAlchemyQuerySinkMethods extends string {
+    SqlAlchemyQuerySinkMethods() { this in [
+        "filter", "filter_by", "having", "group_by", "order_by"
+      ]
+    }
+  }
+
+  private API::Node sqlAlchemySessionInstance() {
+    result = API::moduleImport("sqlalchemy.orm").getMember("Session").getReturn() or
+    result = API::moduleImport("sqlalchemy.orm").getMember("sessionmaker").getReturn().getReturn()
+  }
+
+  private API::Node sqlAlchemyQueryInstance() {
+    result = sqlAlchemySessionInstance().getMember("query").getReturn()
+  }
+
+  private API::Node sqlAlchemyEngineInstance() {
+    result = API::moduleImport("sqlalchemy").getMember("create_engine").getReturn()
+  }
+
+  private class SqlAlchemyQuerySink extends DataFlow::CallCfgNode, SqlExecution::Range {
+    DataFlow::Node sql;
+
+    SqlAlchemyQuerySink() {
+      this in [
+        sqlAlchemyQueryInstance().getMember(any(SqlAlchemyQuerySinkMethods sinkMethod)).getACall(),
+        sqlAlchemySessionInstance().getMember("execute").getACall(),
+        sqlAlchemySessionInstance().getMember("scalar").getACall()
+        sqlAlchemyEngineInstance().getMember("connect").getReturn().getMember("execute").getACall(),
+        sqlAlchemyEngineInstance().getMember("begin").getReturn().getMember("execute").getACall()
+      ] and
+      sql = this.getArg(0)
+    }
+
+    override DataFlow::Node getSql() { result = sql }
+  }
 
   private class SqlSanitizerCall extends DataFlow::CallCfgNode, NoSQLSanitizer::Range {
     SqlSanitizerCall() {
