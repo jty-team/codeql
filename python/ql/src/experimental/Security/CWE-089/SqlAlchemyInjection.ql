@@ -13,7 +13,7 @@
 import python
 import experimental.semmle.python.security.injection.SqlAlchemyInjection
 
-from CustomPathNode source, CustomPathNode sink
-where SqlAlchemyInjectionFlow(source, sink)
+from DataFlow::PathNode source, DataFlow::PathNode sink, SqlAlchemyInjectionConfig sqlAlchemyInjectionConfig
+where sqlAlchemyInjectionConfig.hasFlowPath(source, sink)
 select sink, source, sink, "$@ SQL query contains an unsanitized $@", sink, "This", source,
   "user-provided value"
